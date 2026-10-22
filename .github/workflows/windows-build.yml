@@ -1,0 +1,47 @@
+name: Windows desktop build
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          architecture: x64
+          cache: pip
+          cache-dependency-path: requirements*.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install -r requirements-build.txt
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -m pip check
+      - name: Unit tests
+        run: python -m pytest -q
+      - name: Download and verify bundled model
+        run: python scripts/prepare_model.py
+      - name: Source inference smoke test
+        run: python main.py --smoke-test
+      - name: Build complete onedir distribution
+        run: python -m PyInstaller --noconfirm --clean idphoto.spec
+      - name: Frozen inference test without model download
+        shell: pwsh
+        run: |
+          $env:HTTP_PROXY = 'http://127.0.0.1:9'
+          $env:HTTPS_PROXY = 'http://127.0.0.1:9'
+          $env:NO_PROXY = ''
+          $process = Start-Process -FilePath 'dist/IDPhoto/IDPhoto.exe' -ArgumentList '--smoke-test' -PassThru -Wait
+          if ($process.ExitCode -ne 0) { throw "Frozen inference failed: $($process.ExitCode)" }
+      - name: Zip full distribution
+        run: Compress-Archive -Path dist/IDPhoto -DestinationPath dist/IDPhoto-Windows-x64.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IDPhoto-Windows-x64
+          path: dist/IDPhoto-Windows-x64.zip
+          if-no-files-found: error

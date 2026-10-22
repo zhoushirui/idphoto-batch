@@ -1,0 +1,13 @@
+.venv*/
+__pycache__/
+.pytest_cache/
+*.pyc
+.DS_Store
+build/
+dist/
+models/*.onnx
+models/*.part
+input/
+test-output/
+证件照处理结果*/
+*.zip

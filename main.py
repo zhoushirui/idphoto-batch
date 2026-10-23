@@ -19,7 +19,7 @@ def main():
             assert result.mode == 'RGBA'
             data, _, _ = encode_jpeg(compose_portrait(Image.new('RGBA', (100, 150), 'gray')))
             assert data[:2] == b'\xff\xd8'
-            print('离线模型推理及图片编码自检通过')
+            print('Offline model inference and JPEG encoding smoke test passed.')
             return
         paths = discover(args.input)
         if not paths:

@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
+env:
+  PYTHONUTF8: '1'
+  PYTHONIOENCODING: utf-8
 permissions:
   contents: read
 jobs:

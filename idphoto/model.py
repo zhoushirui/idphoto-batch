@@ -37,6 +37,15 @@ class PortraitRemover:
             raise RuntimeError(f'AI 模型加载失败，请检查运行依赖及完整程序目录：{error}') from error
 
     def __call__(self, image):
-        # Bound inference memory for very large camera photographs.
-        image.thumbnail((2048, 2048))
-        return self._remove(image, session=self.session)
+        from PIL import Image
+        from .matting import refine_cutout
+
+        # Bound foreground estimation while retaining more source detail
+        # than the final 358 x 441 image. Never mutate the caller's image.
+        working = image.convert('RGB')
+        working.thumbnail((1024, 1024), Image.Resampling.LANCZOS)
+        mask = self._remove(working, session=self.session, only_mask=True,
+                            post_process_mask=False)
+        cutout = refine_cutout(working, mask)
+        cutout.info['model'] = MODEL_NAME
+        return cutout

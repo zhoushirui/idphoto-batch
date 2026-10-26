@@ -14,9 +14,18 @@ def main():
         remover = PortraitRemover()
         if args.smoke_test:
             from PIL import Image
+            from idphoto.matting import refine_cutout
             result = remover(Image.new('RGB', (64, 64), 'white'))
             assert result.size == (64, 64)
             assert result.mode == 'RGBA'
+            # Exercise foreground color estimation in frozen builds as well as inference.
+            sample = Image.new('RGB', (64, 64), (190, 10, 30))
+            sample.paste((25, 25, 25), (16, 8, 48, 64))
+            mask = Image.new('L', sample.size, 0)
+            mask.paste(255, (16, 8, 48, 64))
+            refined = refine_cutout(sample, mask)
+            assert refined.info['refinement'].startswith('Original alpha preserved')
+            assert refined.getpixel((32, 40))[3] == 255
             data, _, _ = encode_jpeg(compose_portrait(Image.new('RGBA', (100, 150), 'gray')))
             assert data[:2] == b'\xff\xd8'
             print('Offline model inference and JPEG encoding smoke test passed.')

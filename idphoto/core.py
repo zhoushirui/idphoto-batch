@@ -28,22 +28,23 @@ def read_image(path: Path) -> Image.Image:
         return Image.alpha_composite(background, rgba).convert('RGB')
 
 
-def compose_portrait(cutout: Image.Image) -> Image.Image:
+def white_background(cutout: Image.Image) -> Image.Image:
     cutout = cutout.convert('RGBA')
-    alpha = cutout.getchannel('A')
-    bbox = alpha.point(lambda value: 255 if value > 12 else 0).getbbox()
-    if bbox is None:
+    if cutout.getchannel('A').getextrema()[1] == 0:
         raise ValueError('未识别到人物，请使用清晰的单人正面照片')
-    # Preserve all detected subject pixels; no face detection or stretching.
-    subject = cutout.crop(bbox)
-    scale = min(334 / subject.width, 417 / subject.height)
-    subject = subject.resize((max(1, round(subject.width * scale)),
-                              max(1, round(subject.height * scale))), Image.Resampling.LANCZOS)
-    canvas = Image.new('RGBA', SIZE, (255, 255, 255, 255))
+    background = Image.new('RGBA', cutout.size, (255, 255, 255, 255))
+    return Image.alpha_composite(background, cutout).convert('RGB')
+
+
+def compose_portrait(cutout: Image.Image) -> Image.Image:
+    # Composite straight-alpha colors at source resolution before resampling.
+    # Fit the full original frame, preserving subject scale and position.
+    subject = ImageOps.contain(white_background(cutout), SIZE, Image.Resampling.LANCZOS)
+    canvas = Image.new('RGB', SIZE, (255, 255, 255))
     x = (SIZE[0] - subject.width) // 2
-    y = 16 if subject.height >= 380 else (SIZE[1] - subject.height) // 2
-    canvas.alpha_composite(subject, (x, y))
-    return canvas.convert('RGB')
+    y = (SIZE[1] - subject.height) // 2
+    canvas.paste(subject, (x, y))
+    return canvas
 
 
 def encode_jpeg(image: Image.Image) -> tuple[bytes, int, bool]:
@@ -107,14 +108,31 @@ class Result:
 
 def process_batch(paths: list[Path], output: Path,
                   remove: Callable[[Image.Image], Image.Image],
-                  progress: Callable[[int, Result], None] | None = None) -> list[Result]:
+                  progress: Callable[[int, Result], None] | None = None,
+                  *, debug_output: bool = False) -> list[Result]:
     results = []
     for index, path in enumerate(paths, 1):
         try:
-            image = compose_portrait(remove(read_image(path)))
+            cutout = remove(read_image(path))
+            image = compose_portrait(cutout)
             data, quality, _ = encode_jpeg(image)
             target = save_unique(output, path.stem, data)
             size = target.stat().st_size
+            if debug_output:
+                debug = output / '调试输出' / target.stem
+                debug.mkdir(parents=True)
+                cutout.save(debug / '01-cutout.png')
+                white_background(cutout).save(debug / '02-white-source.png')
+                image.save(debug / '03-white-358x441.png')
+                details = {
+                    'model': cutout.info.get('model', 'custom'),
+                    'refinement': cutout.info.get('refinement', 'not specified'),
+                    'working_size': cutout.size,
+                    'final_jpeg': target.name,
+                    'size_bytes': size,
+                    'quality': quality,
+                }
+                (debug / 'details.json').write_text(json.dumps(details, ensure_ascii=False, indent=2), encoding='utf-8')
             with Image.open(target) as saved:
                 if saved.format != 'JPEG' or saved.mode != 'RGB' or saved.size != SIZE:
                     raise ValueError('保存后图片格式校验失败')

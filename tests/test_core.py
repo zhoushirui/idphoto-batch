@@ -42,7 +42,8 @@ def test_white_size_mode_and_aspect_ratio():
     assert result.mode == 'RGB'
     assert result.getpixel((0, 0)) == (255, 255, 255)
     from PIL import ImageChops
-    bounds = ImageChops.difference(result, Image.new('RGB', SIZE, 'white')).getbbox()
+    difference = ImageChops.difference(result, Image.new('RGB', SIZE, 'white')).convert('L')
+    bounds = difference.point(lambda value: 255 if value > 16 else 0).getbbox()
     assert abs((bounds[2] - bounds[0]) / (bounds[3] - bounds[1]) - 0.5) < 0.01
     data, _, _ = encode_jpeg(result)
     with Image.open(BytesIO(data)) as saved:
@@ -92,6 +93,7 @@ def test_collision_and_originals_and_continue(tmp_path):
         if result.output:
             assert result.size_bytes == __import__('pathlib').Path(result.output).stat().st_size
             assert (result.status == 'success') == (MIN_BYTES <= result.size_bytes <= MAX_BYTES)
+    assert not (output / '调试输出').exists()
     report = json.loads((output / '处理报告.json').read_text(encoding='utf-8'))
     assert report['kb_bytes'] == 1024
     assert len(report['results']) == 3

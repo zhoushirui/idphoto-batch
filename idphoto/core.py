@@ -86,7 +86,7 @@ def create_result_folder(parent: Path) -> Path:
 def save_unique(folder: Path, stem: str, data: bytes) -> Path:
     for number in range(1, 100000):
         suffix = '' if number == 1 else f'_{number}'
-        target = folder / f'{stem}_证件照{suffix}.jpg'
+        target = folder / f'{stem}{suffix}.jpg'
         try:
             with target.open('xb') as file:
                 file.write(data)

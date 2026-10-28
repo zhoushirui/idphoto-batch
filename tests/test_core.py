@@ -85,8 +85,8 @@ def test_collision_and_originals_and_continue(tmp_path):
     results = process_batch(discover(folder), output, lambda image: image.convert('RGBA'))
     assert [r.status for r in results].count('failed') == 1
     assert len(list(output.glob('*.jpg'))) == 2
-    assert (output / '张三_证件照.jpg').exists()
-    assert (output / '张三_证件照_2.jpg').exists()
+    assert (output / '张三.jpg').exists()
+    assert (output / '张三_2.jpg').exists()
     for path, data in originals.items():
         assert path.read_bytes() == data
     for result in results:
@@ -98,7 +98,7 @@ def test_collision_and_originals_and_continue(tmp_path):
     assert report['kb_bytes'] == 1024
     assert len(report['results']) == 3
     assert create_result_folder(tmp_path) != output
-    assert save_unique(output, '张三', b'data').name == '张三_证件照_3.jpg'
+    assert save_unique(output, '张三', b'data').name == '张三_3.jpg'
 
 
 def test_ai_failure_continues(tmp_path):

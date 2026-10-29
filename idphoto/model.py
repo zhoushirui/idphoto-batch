@@ -35,6 +35,8 @@ class PortraitRemover:
             self.session = new_session(MODEL_NAME, providers=['CPUExecutionProvider'])
         except Exception as error:
             raise RuntimeError(f'AI 模型加载失败，请检查运行依赖及完整程序目录：{error}') from error
+        from .framing import FaceDetector
+        self.face_detector = FaceDetector(directory)
 
     def __call__(self, image):
         from PIL import Image
@@ -48,4 +50,11 @@ class PortraitRemover:
                             post_process_mask=False)
         cutout = refine_cutout(working, mask)
         cutout.info['model'] = MODEL_NAME
+        from .framing import plan_crop
+        try:
+            framing = plan_crop(cutout, self.face_detector.detect(working))
+            cutout.info['crop_box'] = framing.box
+            cutout.info['framing'] = framing.reason
+        except Exception as error:
+            cutout.info['framing'] = f'保留原构图：人脸检测失败（{type(error).__name__}）'
         return cutout

@@ -79,6 +79,8 @@ def test_whole_frame_fits_without_recropping_subject():
 def test_model_requests_mask_and_does_not_mutate_input():
     remover = PortraitRemover.__new__(PortraitRemover)
     remover.session = object()
+    from types import SimpleNamespace
+    remover.face_detector = SimpleNamespace(detect=lambda image: np.empty((0, 15)))
     calls = []
     def remove(image, **kwargs):
         calls.append((image.size, kwargs))
@@ -86,6 +88,7 @@ def test_model_requests_mask_and_does_not_mutate_input():
     remover._remove = remove
     original = Image.new('RGB', (2000, 1500), 'gray')
     result = remover(original)
+    assert '未检测到单一人脸' in result.info['framing']
     assert original.size == (2000, 1500)
     assert result.size == (1024, 768)
     assert calls[0][1] == {'session': remover.session, 'only_mask': True, 'post_process_mask': False}
@@ -108,3 +111,17 @@ def test_repairs_clothing_patch_without_changing_edges():
     # A similarly dark backdrop provides insufficient color evidence.
     rgb[alpha == 0] = 0.1
     np.testing.assert_array_equal(repair_clothing_alpha(rgb, alpha), alpha)
+
+
+def test_face_inference_failure_keeps_original_framing():
+    from types import SimpleNamespace
+    remover = PortraitRemover.__new__(PortraitRemover)
+    remover.session = object()
+    remover._remove = lambda image, **kwargs: Image.new('L', image.size, 255)
+    def fail(image):
+        raise RuntimeError('detector failure')
+    remover.face_detector = SimpleNamespace(detect=fail)
+    result = remover(Image.new('RGB', (64, 64), 'gray'))
+    assert result.info.get('crop_box') is None
+    assert '人脸检测失败' in result.info['framing']
+    assert compose_portrait(result).size == SIZE

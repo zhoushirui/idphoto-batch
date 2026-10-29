@@ -27,7 +27,7 @@ jobs:
           python -m pip check
       - name: Unit tests
         run: python -m pytest -q
-      - name: Download and verify bundled model
+      - name: Download and verify bundled models
         run: python scripts/prepare_model.py
       - name: Source inference smoke test
         run: python main.py --smoke-test

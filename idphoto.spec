@@ -7,10 +7,14 @@ model = root / 'models' / 'u2net_human_seg.onnx'
 if not model.is_file():
     raise RuntimeError('Run python scripts/prepare_model.py before packaging')
 
-datas = [(str(model), 'models')]
+face_model = root / 'models' / 'face_detection_yunet_2023mar.onnx'
+license_file = root / 'models' / 'YUNET-LICENSE.txt'
+if not face_model.is_file() or not license_file.is_file():
+    raise RuntimeError('Face model or license missing; run scripts/prepare_model.py')
+datas = [(str(path), 'models') for path in (model, face_model, license_file)]
 binaries = []
 hiddenimports = []
-for package in ('rembg', 'onnxruntime', 'pymatting', 'scipy', 'skimage', 'numba', 'llvmlite'):
+for package in ('rembg', 'onnxruntime', 'pymatting', 'scipy', 'skimage', 'numba', 'llvmlite', 'cv2'):
     package_datas, package_binaries, package_hidden = collect_all(package)
     datas += package_datas
     binaries += package_binaries

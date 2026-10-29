@@ -31,10 +31,10 @@ def test_prepare_model_cp1252(tmp_path, monkeypatch, existing, bad_checksum):
     monkeypatch.setattr(prepare_model.sys, 'stdout', stream)
     if bad_checksum:
         with pytest.raises(RuntimeError, match='checksum mismatch'):
-            prepare_model.main()
+            prepare_model.prepare_portrait_model()
         assert not target.exists()
     else:
-        prepare_model.main()
+        prepare_model.prepare_portrait_model()
         assert verified == [directory]
     stream.flush()
     assert buffer.getvalue().isascii()

@@ -18,6 +18,8 @@ def main():
             result = remover(Image.new('RGB', (64, 64), 'white'))
             assert result.size == (64, 64)
             assert result.mode == 'RGBA'
+            # Do not let the per-photo fallback hide frozen detector failures.
+            assert len(remover.face_detector.detect(Image.new('RGB', (64, 64), 'white'))) == 0
             # Exercise foreground color estimation in frozen builds as well as inference.
             sample = Image.new('RGB', (64, 64), (190, 10, 30))
             sample.paste((25, 25, 25), (16, 8, 48, 64))

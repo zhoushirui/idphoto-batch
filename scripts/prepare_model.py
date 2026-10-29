@@ -6,9 +6,10 @@ from urllib.request import urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from idphoto.model import MODEL_MD5, MODEL_NAME, model_directory, verify_model
+from idphoto.framing import FACE_MODEL, FACE_SHA256, FACE_URL, verify_face_model
 
 
-def main():
+def prepare_portrait_model():
     directory = model_directory()
     directory.mkdir(parents=True, exist_ok=True)
     target = directory / f'{MODEL_NAME}.onnx'
@@ -30,6 +31,32 @@ def main():
     finally:
         temporary.unlink(missing_ok=True)
     print(f'Model downloaded and verified: {ascii(str(verify_model(directory)))}')
+
+
+def prepare_face_model():
+    directory = model_directory()
+    directory.mkdir(parents=True, exist_ok=True)
+    target = directory / FACE_MODEL
+    if target.exists():
+        print(f'Face model already verified: {ascii(str(verify_face_model(directory)))}')
+        return
+    temporary = target.with_suffix('.onnx.part')
+    print('Downloading face detection model...', flush=True)
+    try:
+        with urlopen(FACE_URL, timeout=60) as response:
+            payload = response.read()
+        if hashlib.sha256(payload).hexdigest() != FACE_SHA256:
+            raise RuntimeError('Downloaded face model checksum mismatch. Please retry.')
+        temporary.write_bytes(payload)
+        temporary.replace(target)
+    finally:
+        temporary.unlink(missing_ok=True)
+    print(f'Face model downloaded and verified: {ascii(str(verify_face_model(directory)))}')
+
+
+def main():
+    prepare_portrait_model()
+    prepare_face_model()
 
 
 if __name__ == '__main__':

@@ -38,8 +38,10 @@ def white_background(cutout: Image.Image) -> Image.Image:
 
 def compose_portrait(cutout: Image.Image) -> Image.Image:
     # Composite straight-alpha colors at source resolution before resampling.
-    # Fit the full original frame, preserving subject scale and position.
-    subject = ImageOps.contain(white_background(cutout), SIZE, Image.Resampling.LANCZOS)
+    white = white_background(cutout)
+    if cutout.info.get('crop_box') is not None:
+        white = white.crop(cutout.info['crop_box'])
+    subject = ImageOps.contain(white, SIZE, Image.Resampling.LANCZOS)
     canvas = Image.new('RGB', SIZE, (255, 255, 255))
     x = (SIZE[0] - subject.width) // 2
     y = (SIZE[1] - subject.height) // 2
@@ -104,6 +106,7 @@ class Result:
     size_bytes: int = 0
     quality: int = 0
     error: str = ''
+    framing: str = ''
 
 
 def process_batch(paths: list[Path], output: Path,
@@ -139,7 +142,8 @@ def process_batch(paths: list[Path], output: Path,
             compliant = MIN_BYTES <= size <= MAX_BYTES
             result = Result(str(path), 'success' if compliant else 'size_warning',
                             str(target), size, quality,
-                            '' if compliant else '文件大小不在 10–30 KB 内；请人工复核')
+                            '' if compliant else '文件大小不在 10–30 KB 内；请人工复核',
+                            cutout.info.get('framing', ''))
         except Exception as error:
             result = Result(str(path), 'failed', error=str(error))
         results.append(result)
